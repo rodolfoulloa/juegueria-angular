@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterLink, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { CartService } from '../../core/services/cart.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ClpPipe } from '../../core/pipes/clp.pipe';
@@ -7,7 +7,7 @@ import { ClpPipe } from '../../core/pipes/clp.pipe';
 @Component({
   selector: 'app-carrito',
   standalone: true,
-  imports: [RouterLink, ClpPipe],
+  imports: [ ClpPipe],
   template: `
     <section class="categoria-detalle" aria-labelledby="titulo-carrito">
       <h2 id="titulo-carrito">Carrito de compras</h2>
