@@ -1,4 +1,5 @@
 import { Component, inject, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Producto } from '../../core/models/models';
 import { CartService } from '../../core/services/cart.service';
 import { ClpPipe } from '../../core/pipes/clp.pipe';
@@ -10,7 +11,7 @@ import { ClpPipe } from '../../core/pipes/clp.pipe';
 @Component({
   selector: 'app-ficha-juego',
   standalone: true,
-  imports: [ClpPipe],
+  imports: [ClpPipe, RouterLink],
   template: `
     <article class="ficha-juego">
       <img [src]="producto().imagen" [alt]="'Juego ' + producto().nombre">
@@ -20,10 +21,15 @@ import { ClpPipe } from '../../core/pipes/clp.pipe';
       @if (etiqueta() || producto().etiqueta) {
         <p class="descuento">{{ etiqueta() || producto().etiqueta }}</p>
       }
-      <button type="button" class="btn btn-primary mt-2 w-100"
-              (click)="agregarAlCarrito()">
-        Agregar al carrito
-      </button>
+      <div class="d-grid gap-2 mt-3">
+        <a class="btn btn-outline-secondary" [routerLink]="['/producto', producto().id]">
+          Ver detalle
+        </a>
+        <button type="button" class="btn btn-primary"
+                (click)="agregarAlCarrito()">
+          Agregar al carrito
+        </button>
+      </div>
     </article>
   `
 })

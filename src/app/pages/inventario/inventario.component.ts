@@ -1,19 +1,9 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { StorageService } from '../../core/services/storage.service';
 import { AuthService } from '../../core/services/auth.service';
 import { Producto } from '../../core/models/models';
 import { ClpPipe } from '../../core/pipes/clp.pipe';
-
-interface FormInventario {
-  id: string;
-  nombre: string;
-  categoria: string;
-  precio: number | null;
-  stock: number | null;
-  descripcion: string;
-  etiqueta: string;
-}
 
 function slugify(valor: string): string {
   return valor
@@ -27,7 +17,7 @@ function slugify(valor: string): string {
 @Component({
   selector: 'app-inventario',
   standalone: true,
-  imports: [FormsModule, ClpPipe],
+  imports: [ReactiveFormsModule, ClpPipe],
   template: `
     <section class="categoria-detalle" aria-labelledby="titulo-inventario">
       <h2 id="titulo-inventario">Gestión de inventario</h2>
@@ -36,47 +26,59 @@ function slugify(valor: string): string {
       </p>
 
       <!-- Formulario CRUD -->
-      <form (ngSubmit)="onSubmit()" class="row g-3" novalidate>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="row g-3" novalidate>
+        <input type="hidden" formControlName="id">
+
         <div class="col-12 col-md-4">
           <label class="form-label" for="inventarioNombre">Nombre del juego</label>
           <input class="form-control" type="text" id="inventarioNombre"
-                 name="nombre" [(ngModel)]="form.nombre" required>
+                 formControlName="nombre"
+                 [class.is-valid]="nombre.valid && nombre.touched"
+                 [class.is-invalid]="nombre.invalid && nombre.touched">
         </div>
 
         <div class="col-12 col-md-3">
           <label class="form-label" for="inventarioCategoria">Categoría</label>
           <input class="form-control" type="text" id="inventarioCategoria"
-                 name="categoria" [(ngModel)]="form.categoria" required>
+                 formControlName="categoria"
+                 [class.is-valid]="categoria.valid && categoria.touched"
+                 [class.is-invalid]="categoria.invalid && categoria.touched">
         </div>
 
         <div class="col-12 col-md-2">
           <label class="form-label" for="inventarioPrecio">Precio</label>
           <input class="form-control" type="number" id="inventarioPrecio"
-                 name="precio" [(ngModel)]="form.precio" min="0" required>
+                 formControlName="precio" min="0"
+                 [class.is-valid]="precio.valid && precio.touched"
+                 [class.is-invalid]="precio.invalid && precio.touched">
         </div>
 
         <div class="col-12 col-md-3">
           <label class="form-label" for="inventarioStock">Stock</label>
           <input class="form-control" type="number" id="inventarioStock"
-                 name="stock" [(ngModel)]="form.stock" min="0" required>
+                 formControlName="stock" min="0"
+                 [class.is-valid]="stock.valid && stock.touched"
+                 [class.is-invalid]="stock.invalid && stock.touched">
         </div>
 
         <div class="col-12 col-lg-8">
           <label class="form-label" for="inventarioDescripcion">Descripción</label>
           <input class="form-control" type="text" id="inventarioDescripcion"
-                 name="descripcion" [(ngModel)]="form.descripcion" required>
+                 formControlName="descripcion"
+                 [class.is-valid]="descripcion.valid && descripcion.touched"
+                 [class.is-invalid]="descripcion.invalid && descripcion.touched">
         </div>
 
         <div class="col-12 col-lg-4">
           <label class="form-label" for="inventarioEtiqueta">Etiqueta comercial</label>
           <input class="form-control" type="text" id="inventarioEtiqueta"
-                 name="etiqueta" [(ngModel)]="form.etiqueta"
+                 formControlName="etiqueta"
                  placeholder="Ej: Novedad de la semana">
         </div>
 
         <div class="col-12 d-flex flex-wrap gap-2 mt-1">
           <button class="btn btn-primary" type="submit">
-            {{ form.id ? 'Actualizar juego' : 'Guardar juego' }}
+            {{ form.value.id ? 'Actualizar juego' : 'Guardar juego' }}
           </button>
           <button class="btn btn-outline-secondary" type="button" (click)="limpiarForm()">
             Limpiar
@@ -131,29 +133,62 @@ function slugify(valor: string): string {
 export class InventarioComponent implements OnInit {
   private storage = inject(StorageService);
   private auth = inject(AuthService);
+  private fb = inject(FormBuilder);
 
   inventario = signal<Producto[]>([]);
   mensaje = signal('');
   mensajeTipo = signal<'ok' | 'error' | ''>('');
 
-  form: FormInventario = this.formVacio();
+  form = this.fb.group({
+    id: [''],
+    nombre: ['', Validators.required],
+    categoria: ['', Validators.required],
+    precio: this.fb.control<number | null>(null, [Validators.required, Validators.min(0)]),
+    stock: this.fb.control<number | null>(null, [Validators.required, Validators.min(0)]),
+    descripcion: ['', Validators.required],
+    etiqueta: ['']
+  });
 
   ngOnInit(): void {
     this.inventario.set(this.storage.getInventory());
   }
 
-  private formVacio(): FormInventario {
-    return { id: '', nombre: '', categoria: '', precio: null, stock: null, descripcion: '', etiqueta: '' };
+  get nombre() {
+    return this.form.get('nombre')!;
+  }
+
+  get categoria() {
+    return this.form.get('categoria')!;
+  }
+
+  get precio() {
+    return this.form.get('precio')!;
+  }
+
+  get stock() {
+    return this.form.get('stock')!;
+  }
+
+  get descripcion() {
+    return this.form.get('descripcion')!;
   }
 
   limpiarForm(): void {
-    this.form = this.formVacio();
+    this.form.reset({
+      id: '',
+      nombre: '',
+      categoria: '',
+      precio: null,
+      stock: null,
+      descripcion: '',
+      etiqueta: ''
+    });
     this.mensaje.set('');
     this.mensajeTipo.set('');
   }
 
   editar(item: Producto): void {
-    this.form = {
+    this.form.setValue({
       id: item.id,
       nombre: item.nombre,
       categoria: item.categoria,
@@ -161,7 +196,7 @@ export class InventarioComponent implements OnInit {
       stock: item.stock,
       descripcion: item.descripcion,
       etiqueta: item.etiqueta ?? ''
-    };
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -181,19 +216,21 @@ export class InventarioComponent implements OnInit {
       return;
     }
 
-    const nombre = this.form.nombre.trim();
-    const categoria = this.form.categoria.trim();
-    const descripcion = this.form.descripcion.trim();
-    const precio = Number(this.form.precio);
-    const stock = Number(this.form.stock);
-
-    if (!nombre || !categoria || !descripcion || precio < 0 || stock < 0) {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       this.mensaje.set('Completa todos los campos obligatorios del inventario.');
       this.mensajeTipo.set('error');
       return;
     }
 
-    const id = this.form.id || slugify(nombre);
+    const values = this.form.getRawValue();
+    const nombre = String(values.nombre ?? '').trim();
+    const categoria = String(values.categoria ?? '').trim();
+    const descripcion = String(values.descripcion ?? '').trim();
+    const precio = Number(values.precio ?? 0);
+    const stock = Number(values.stock ?? 0);
+
+    const id = values.id || slugify(nombre);
     const item: Producto = {
       id,
       nombre,
@@ -201,7 +238,7 @@ export class InventarioComponent implements OnInit {
       precio,
       stock,
       descripcion,
-      etiqueta: this.form.etiqueta.trim(),
+      etiqueta: String(values.etiqueta ?? '').trim(),
       imagen: `assets/img/juego-${categoria.toLowerCase()}.svg`
     };
 

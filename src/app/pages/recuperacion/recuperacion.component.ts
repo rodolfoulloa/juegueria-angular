@@ -1,11 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { StorageService } from '../../core/services/storage.service';
 
 @Component({
   selector: 'app-recuperacion',
   standalone: true,
-  imports: [FormsModule],
+  imports: [ReactiveFormsModule],
   template: `
     <section class="categoria-detalle" aria-labelledby="titulo-recuperacion">
       <h2 id="titulo-recuperacion">Recuperación de contraseña</h2>
@@ -13,11 +13,14 @@ import { StorageService } from '../../core/services/storage.service';
         Ingresa tu correo y te mostraremos una confirmación simulada en pantalla.
       </p>
 
-      <form (ngSubmit)="onSubmit()" class="row g-3" novalidate>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="row g-3" novalidate>
         <div class="col-12 col-lg-7">
           <label class="form-label" for="recuperacionEmail">Correo electrónico</label>
           <input class="form-control" type="email" id="recuperacionEmail"
-                 name="email" [(ngModel)]="email" required>
+                 formControlName="email"
+                 [class.is-valid]="email.valid && email.touched"
+                 [class.is-invalid]="email.invalid && email.touched">
+          <div class="invalid-feedback">Ingresa un correo válido para recuperar tu acceso.</div>
         </div>
         <div class="col-12 col-lg-5 d-flex align-items-end">
           <button class="btn btn-primary w-100" type="submit">Recuperar acceso</button>
@@ -37,24 +40,30 @@ import { StorageService } from '../../core/services/storage.service';
 })
 export class RecuperacionComponent {
   private storage = inject(StorageService);
+  private fb = inject(FormBuilder);
 
-  email = '';
+  form = this.fb.group({
+    email: ['', [Validators.required, Validators.email]]
+  });
+
   mensaje = signal('');
   mensajeTipo = signal<'ok' | 'error' | ''>('');
 
-  private correoValido(valor: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
+  get email() {
+    return this.form.get('email')!;
   }
 
   onSubmit(): void {
-    const emailLimpio = this.email.trim();
-
-    if (!this.correoValido(emailLimpio)) {
+    this.mensaje.set('');
+    this.mensajeTipo.set('');
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       this.mensaje.set('Ingresa un correo válido para recuperar tu acceso.');
       this.mensajeTipo.set('error');
       return;
     }
 
+    const emailLimpio = String(this.email.value ?? '').trim();
     const usuario = this.storage.findUserByEmail(emailLimpio);
 
     if (!usuario) {
@@ -62,7 +71,7 @@ export class RecuperacionComponent {
         'Si el correo existe en el sistema, enviamos instrucciones de recuperación simuladas.'
       );
       this.mensajeTipo.set('ok');
-      this.email = '';
+      this.form.reset();
       return;
     }
 
@@ -71,6 +80,6 @@ export class RecuperacionComponent {
       `Usa esta clave junto con tu usuario <strong>${usuario.usuario}</strong> para iniciar sesión.`
     );
     this.mensajeTipo.set('ok');
-    this.email = '';
+    this.form.reset();
   }
 }

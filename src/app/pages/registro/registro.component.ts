@@ -1,17 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
-import { FormsModule, NgForm } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { StorageService } from '../../core/services/storage.service';
-
-interface FormRegistro {
-  nombre: string;
-  usuario: string;
-  email: string;
-  fechaNacimiento: string;
-  clave: string;
-  repetirClave: string;
-  direccion: string;
-}
 
 interface ResumenRegistro {
   nombre: string;
@@ -21,19 +11,10 @@ interface ResumenRegistro {
   direccion: string;
 }
 
-interface EstadoCampos {
-  nombre: boolean | null;
-  usuario: boolean | null;
-  email: boolean | null;
-  fechaNacimiento: boolean | null;
-  clave: boolean | null;
-  repetirClave: boolean | null;
-}
-
 @Component({
   selector: 'app-registro',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink],
   template: `
     <section class="categoria-detalle" aria-labelledby="titulo-registro">
       <h2 id="titulo-registro">Registro de compradores</h2>
@@ -42,16 +23,16 @@ interface EstadoCampos {
       </p>
 
       @if (!exitoso()) {
-        <form #regForm="ngForm" (ngSubmit)="onSubmit(regForm)"
+        <form [formGroup]="form" (ngSubmit)="onSubmit()"
               class="row g-3" novalidate>
 
           <!-- Nombre completo -->
           <div class="col-12 col-md-6">
             <label class="form-label" for="nombreCompleto">Nombre completo</label>
             <input class="form-control" type="text" id="nombreCompleto"
-                   name="nombreCompleto" [(ngModel)]="form.nombre" required
-                   [class.is-valid]="estado.nombre === true"
-                   [class.is-invalid]="estado.nombre === false">
+                   formControlName="nombre"
+                   [class.is-valid]="nombre.valid && nombre.touched"
+                   [class.is-invalid]="nombre.invalid && nombre.touched">
             <div class="invalid-feedback">Ingresa tu nombre completo.</div>
           </div>
 
@@ -59,9 +40,9 @@ interface EstadoCampos {
           <div class="col-12 col-md-6">
             <label class="form-label" for="usuario">Nombre de usuario</label>
             <input class="form-control" type="text" id="usuario"
-                   name="usuario" [(ngModel)]="form.usuario" minlength="3" required
-                   [class.is-valid]="estado.usuario === true"
-                   [class.is-invalid]="estado.usuario === false">
+                   formControlName="usuario"
+                   [class.is-valid]="usuario.valid && usuario.touched"
+                   [class.is-invalid]="usuario.invalid && usuario.touched">
             <div class="invalid-feedback">
               Ingresa un nombre de usuario (mínimo 3 caracteres, sin espacios) y que no esté en uso.
             </div>
@@ -71,9 +52,9 @@ interface EstadoCampos {
           <div class="col-12 col-md-6">
             <label class="form-label" for="email">Correo electrónico</label>
             <input class="form-control" type="email" id="email"
-                   name="email" [(ngModel)]="form.email" required
-                   [class.is-valid]="estado.email === true"
-                   [class.is-invalid]="estado.email === false">
+                   formControlName="email"
+                   [class.is-valid]="email.valid && email.touched"
+                   [class.is-invalid]="email.invalid && email.touched">
             <div class="invalid-feedback">Ingresa un correo válido y que no esté en uso.</div>
           </div>
 
@@ -81,9 +62,9 @@ interface EstadoCampos {
           <div class="col-12 col-md-6">
             <label class="form-label" for="fechaNacimiento">Fecha de nacimiento</label>
             <input class="form-control" type="date" id="fechaNacimiento"
-                   name="fechaNacimiento" [(ngModel)]="form.fechaNacimiento" required
-                   [class.is-valid]="estado.fechaNacimiento === true"
-                   [class.is-invalid]="estado.fechaNacimiento === false">
+                   formControlName="fechaNacimiento"
+                   [class.is-valid]="fechaNacimiento.valid && fechaNacimiento.touched"
+                   [class.is-invalid]="fechaNacimiento.invalid && fechaNacimiento.touched">
             <div class="invalid-feedback">Debes tener al menos 13 años para registrarte.</div>
           </div>
 
@@ -91,10 +72,9 @@ interface EstadoCampos {
           <div class="col-12 col-md-6">
             <label class="form-label" for="clave">Contraseña</label>
             <input class="form-control" type="password" id="clave"
-                   name="clave" [(ngModel)]="form.clave"
-                   minlength="6" maxlength="18" required
-                   [class.is-valid]="estado.clave === true"
-                   [class.is-invalid]="estado.clave === false">
+                   formControlName="clave"
+                   [class.is-valid]="clave.valid && clave.touched"
+                   [class.is-invalid]="clave.invalid && clave.touched">
             <div class="form-text">Debe incluir al menos una mayúscula y un número (6 a 18 caracteres).</div>
             <div class="invalid-feedback">La contraseña no cumple los requisitos.</div>
           </div>
@@ -103,25 +83,24 @@ interface EstadoCampos {
           <div class="col-12 col-md-6">
             <label class="form-label" for="repetirClave">Repetir contraseña</label>
             <input class="form-control" type="password" id="repetirClave"
-                   name="repetirClave" [(ngModel)]="form.repetirClave"
-                   minlength="6" maxlength="18" required
-                   [class.is-valid]="estado.repetirClave === true"
-                   [class.is-invalid]="estado.repetirClave === false">
+                   formControlName="repetirClave"
+                   [class.is-valid]="repetirClave.valid && repetirClave.touched"
+                   [class.is-invalid]="repetirClave.invalid && repetirClave.touched">
             <div class="invalid-feedback">Las contraseñas deben coincidir.</div>
           </div>
 
           <!-- Dirección -->
           <div class="col-12">
             <label class="form-label" for="direccion">Dirección de despacho (opcional)</label>
-            <textarea class="form-control" id="direccion" name="direccion"
-                      [(ngModel)]="form.direccion" rows="2"
+            <textarea class="form-control" id="direccion" formControlName="direccion"
+                      rows="2"
                       placeholder="Ejemplo: Av. Siempre Viva 742, Santiago"></textarea>
           </div>
 
           <div class="col-12 d-flex flex-wrap gap-2 mt-1">
             <button class="btn btn-primary" type="submit">Enviar formulario</button>
             <button class="btn btn-outline-secondary" type="button"
-                    (click)="limpiar(regForm)">Limpiar formulario</button>
+                    (click)="limpiar()">Limpiar formulario</button>
           </div>
         </form>
 
@@ -157,54 +136,134 @@ interface EstadoCampos {
 })
 export class RegistroComponent {
   private storage = inject(StorageService);
+  private fb = inject(FormBuilder);
 
-  form: FormRegistro = {
-    nombre: '',
-    usuario: '',
-    email: '',
-    fechaNacimiento: '',
-    clave: '',
-    repetirClave: '',
-    direccion: ''
-  };
-
-  estado: EstadoCampos = {
-    nombre: null,
-    usuario: null,
-    email: null,
-    fechaNacimiento: null,
-    clave: null,
-    repetirClave: null
-  };
+  form = this.fb.group({
+    nombre: ['', Validators.required],
+    usuario: ['', [Validators.required, Validators.minLength(3), this.noWhitespaceValidator]],
+    email: ['', [Validators.required, Validators.email]],
+    fechaNacimiento: ['', Validators.required],
+    clave: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(18), this.passwordPatternValidator]],
+    repetirClave: ['', Validators.required],
+    direccion: ['']
+  }, { validators: [this.passwordMatchValidator(), this.minimumAgeValidator()] });
 
   exitoso = signal(false);
   resumen = signal<ResumenRegistro | null>(null);
   mensaje = signal('');
   mensajeTipo = signal<'ok' | 'error' | ''>('');
 
-  // ─── Validaciones ────────────────────────────────────────────────────────────
-
-  private edadValida(fecha: string): boolean {
-    if (!fecha) return false;
-    const hoy = new Date();
-    const nac = new Date(fecha + 'T00:00:00');
-    if (isNaN(nac.getTime())) return false;
-    let edad = hoy.getFullYear() - nac.getFullYear();
-    const mes = hoy.getMonth() - nac.getMonth();
-    if (mes < 0 || (mes === 0 && hoy.getDate() < nac.getDate())) edad--;
-    return edad >= 13;
+  get nombre() {
+    return this.form.get('nombre')!;
   }
 
-  private correoValido(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  get usuario() {
+    return this.form.get('usuario')!;
   }
 
-  private claveValida(clave: string): boolean {
-    return /^(?=.*[A-Z])(?=.*\d).{6,18}$/.test(clave);
+  get email() {
+    return this.form.get('email')!;
   }
 
-  private usuarioValido(usuario: string): boolean {
-    return /^\S{3,}$/.test(usuario);
+  get fechaNacimiento() {
+    return this.form.get('fechaNacimiento')!;
+  }
+
+  get clave() {
+    return this.form.get('clave')!;
+  }
+
+  get repetirClave() {
+    return this.form.get('repetirClave')!;
+  }
+
+  private noWhitespaceValidator(control: AbstractControl): ValidationErrors | null {
+    const value = String(control.value || '');
+    return value.trim().length === value.length ? null : { whitespace: true };
+  }
+
+  private passwordPatternValidator(control: AbstractControl): ValidationErrors | null {
+    const value = String(control.value || '');
+    return /^(?=.*[A-Z])(?=.*\d).{6,18}$/.test(value) ? null : { passwordPattern: true };
+  }
+
+  private passwordMatchValidator(): ValidatorFn {
+    return (group: AbstractControl): ValidationErrors | null => {
+      const clave = group.get('clave')?.value;
+      const repetir = group.get('repetirClave')?.value;
+      return clave && repetir && clave !== repetir ? { passwordMismatch: true } : null;
+    };
+  }
+
+  private minimumAgeValidator(): ValidatorFn {
+    return (group: AbstractControl): ValidationErrors | null => {
+      const fecha = group.get('fechaNacimiento')?.value;
+      if (!fecha) return null;
+      const hoy = new Date();
+      const nac = new Date(fecha + 'T00:00:00');
+      if (isNaN(nac.getTime())) return { invalidDate: true };
+      let edad = hoy.getFullYear() - nac.getFullYear();
+      const mes = hoy.getMonth() - nac.getMonth();
+      if (mes < 0 || (mes === 0 && hoy.getDate() < nac.getDate())) edad--;
+      return edad >= 13 ? null : { tooYoung: true };
+    };
+  }
+
+  onSubmit(): void {
+    this.mensaje.set('');
+    this.mensajeTipo.set('');
+
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      const usuarioValue = this.usuario.value?.trim() ?? '';
+      const emailValue = this.email.value?.trim() ?? '';
+
+      if (usuarioValue && !this.usuarioDisponible(usuarioValue)) {
+        this.mensaje.set('Ese nombre de usuario ya está registrado. Elige otro distinto.');
+      } else if (emailValue && !this.correoDisponible(emailValue)) {
+        this.mensaje.set('Ese correo ya está registrado. Usa otro o inicia sesión.');
+      } else {
+        this.mensaje.set('Revisa los campos en rojo para completar tu registro.');
+      }
+      this.mensajeTipo.set('error');
+      return;
+    }
+
+    const values = this.form.getRawValue();
+    this.storage.upsertUser({
+      nombre: String(values.nombre ?? '').trim(),
+      usuario: String(values.usuario ?? '').trim(),
+      correo: String(values.email ?? '').trim(),
+      contrasena: String(values.clave ?? ''),
+      direccion: String(values.direccion ?? '').trim(),
+      rol: 'cliente'
+    });
+
+    const fechaTexto = new Date(String(values.fechaNacimiento ?? '') + 'T00:00:00').toLocaleDateString('es-CL');
+    this.resumen.set({
+      nombre: String(values.nombre ?? '').trim(),
+      usuario: String(values.usuario ?? '').trim(),
+      email: String(values.email ?? '').trim(),
+      fechaNacimiento: fechaTexto,
+      direccion: String(values.direccion ?? '').trim() || 'Sin dirección registrada'
+    });
+
+    this.exitoso.set(true);
+  }
+
+  limpiar(): void {
+    this.form.reset({
+      nombre: '',
+      usuario: '',
+      email: '',
+      fechaNacimiento: '',
+      clave: '',
+      repetirClave: '',
+      direccion: ''
+    });
+    this.mensaje.set('');
+    this.mensajeTipo.set('');
+    this.exitoso.set(false);
   }
 
   private usuarioDisponible(usuario: string): boolean {
@@ -216,89 +275,5 @@ export class RegistroComponent {
     return !this.storage.getUsers().some(
       u => (u.correo ?? '').trim().toLowerCase() === norm
     );
-  }
-
-  private validar(): boolean {
-    const nombreOk = this.form.nombre.trim().length > 0;
-    const usuarioOk =
-      this.usuarioValido(this.form.usuario) &&
-      this.usuarioDisponible(this.form.usuario.trim());
-    const emailOk =
-      this.correoValido(this.form.email) &&
-      this.correoDisponible(this.form.email);
-    const fechaOk = this.edadValida(this.form.fechaNacimiento);
-    const claveOk = this.claveValida(this.form.clave);
-    const repetirOk =
-      this.form.repetirClave.length > 0 &&
-      this.form.repetirClave === this.form.clave;
-
-    this.estado = {
-      nombre: nombreOk,
-      usuario: usuarioOk,
-      email: emailOk,
-      fechaNacimiento: fechaOk,
-      clave: claveOk,
-      repetirClave: repetirOk
-    };
-
-    return nombreOk && usuarioOk && emailOk && fechaOk && claveOk && repetirOk;
-  }
-
-  onSubmit(_form: NgForm): void {
-    const ok = this.validar();
-
-    if (!ok) {
-      if (!this.usuarioDisponible(this.form.usuario.trim())) {
-        this.mensaje.set('Ese nombre de usuario ya está registrado. Elige otro distinto.');
-      } else if (!this.correoDisponible(this.form.email)) {
-        this.mensaje.set('Ese correo ya está registrado. Usa otro o inicia sesión.');
-      } else {
-        this.mensaje.set('Revisa los campos en rojo para completar tu registro.');
-      }
-      this.mensajeTipo.set('error');
-      return;
-    }
-
-    this.storage.upsertUser({
-      nombre: this.form.nombre.trim(),
-      usuario: this.form.usuario.trim(),
-      correo: this.form.email.trim(),
-      contrasena: this.form.clave,
-      direccion: this.form.direccion.trim(),
-      rol: 'cliente'
-    });
-
-    const fechaTexto = new Date(
-      this.form.fechaNacimiento + 'T00:00:00'
-    ).toLocaleDateString('es-CL');
-
-    this.resumen.set({
-      nombre: this.form.nombre.trim(),
-      usuario: this.form.usuario.trim(),
-      email: this.form.email.trim(),
-      fechaNacimiento: fechaTexto,
-      direccion: this.form.direccion.trim() || 'Sin dirección registrada'
-    });
-
-    this.exitoso.set(true);
-  }
-
-  limpiar(form: NgForm): void {
-    form.resetForm();
-    this.form = {
-      nombre: '',
-      usuario: '',
-      email: '',
-      fechaNacimiento: '',
-      clave: '',
-      repetirClave: '',
-      direccion: ''
-    };
-    this.estado = {
-      nombre: null, usuario: null, email: null,
-      fechaNacimiento: null, clave: null, repetirClave: null
-    };
-    this.mensaje.set('');
-    this.mensajeTipo.set('');
   }
 }

@@ -1,47 +1,53 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidatorFn, ValidationErrors } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
   selector: 'app-perfil',
   standalone: true,
-  imports: [FormsModule],
+  imports: [ReactiveFormsModule],
   template: `
     <section class="categoria-detalle" aria-labelledby="titulo-perfil">
       <h2 id="titulo-perfil">Modificación de perfil</h2>
       <p class="descripcion-registro">Actualiza tu información desde la sesión activa.</p>
 
-      <form (ngSubmit)="onSubmit()" class="row g-3" novalidate>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()" class="row g-3" novalidate>
 
         <div class="col-12 col-md-6">
           <label class="form-label" for="perfilNombre">Nombre completo</label>
           <input class="form-control" type="text" id="perfilNombre"
-                 name="nombre" [(ngModel)]="form.nombre" required>
+                 formControlName="nombre"
+                 [class.is-valid]="nombre.valid && nombre.touched"
+                 [class.is-invalid]="nombre.invalid && nombre.touched">
         </div>
 
         <div class="col-12 col-md-6">
           <label class="form-label" for="perfilUsuario">Nombre de usuario</label>
           <input class="form-control" type="text" id="perfilUsuario"
-                 name="usuario" [ngModel]="form.usuario" readonly>
+                 formControlName="usuario" readonly>
         </div>
 
         <div class="col-12 col-md-6">
           <label class="form-label" for="perfilCorreo">Correo electrónico</label>
           <input class="form-control" type="email" id="perfilCorreo"
-                 name="correo" [(ngModel)]="form.correo" required>
+                 formControlName="correo"
+                 [class.is-valid]="correo.valid && correo.touched"
+                 [class.is-invalid]="correo.invalid && correo.touched">
         </div>
 
         <div class="col-12 col-md-6">
           <label class="form-label" for="perfilDireccion">Dirección de despacho</label>
           <input class="form-control" type="text" id="perfilDireccion"
-                 name="direccion" [(ngModel)]="form.direccion">
+                 formControlName="direccion">
         </div>
 
         <div class="col-12 col-md-6">
           <label class="form-label" for="perfilClave">Nueva contraseña</label>
           <input class="form-control" type="password" id="perfilClave"
-                 name="clave" [(ngModel)]="form.clave"
-                 placeholder="Deja vacío para conservar la actual">
+                 formControlName="clave"
+                 placeholder="Deja vacío para conservar la actual"
+                 [class.is-valid]="clave.valid && clave.touched"
+                 [class.is-invalid]="clave.invalid && clave.touched">
           <div class="form-text">Si la cambias, debe incluir una mayúscula y un número.</div>
         </div>
 
@@ -63,17 +69,30 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class PerfilComponent implements OnInit {
   private auth = inject(AuthService);
+  private fb = inject(FormBuilder);
 
-  form = {
-    nombre: '',
-    usuario: '',
-    correo: '',
-    direccion: '',
-    clave: ''
-  };
+  form = this.fb.group({
+    nombre: ['', Validators.required],
+    usuario: [{ value: '', disabled: true }],
+    correo: ['', [Validators.required, Validators.email]],
+    direccion: [''],
+    clave: ['', [this.passwordPatternValidator]]
+  });
 
   mensaje = signal('');
   mensajeTipo = signal<'ok' | 'error' | ''>('');
+
+  get nombre() {
+    return this.form.get('nombre')!;
+  }
+
+  get correo() {
+    return this.form.get('correo')!;
+  }
+
+  get clave() {
+    return this.form.get('clave')!;
+  }
 
   ngOnInit(): void {
     this.cargarDatos();
@@ -82,41 +101,36 @@ export class PerfilComponent implements OnInit {
   private cargarDatos(): void {
     const usuario = this.auth.currentUser();
     if (!usuario) return;
-    this.form = {
+    this.form.patchValue({
       nombre: usuario.nombre,
       usuario: usuario.usuario,
       correo: usuario.correo,
-      direccion: usuario.direccion,
+      direccion: usuario.direccion || '',
       clave: ''
-    };
+    });
+    this.form.get('usuario')?.disable();
   }
 
-  private correoValido(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
-
-  private claveValida(clave: string): boolean {
-    return /^(?=.*[A-Z])(?=.*\d).{6,18}$/.test(clave);
+  private passwordPatternValidator(control: AbstractControl): ValidationErrors | null {
+    const value = String(control.value || '');
+    if (!value) return null;
+    return /^(?=.*[A-Z])(?=.*\d).{6,18}$/.test(value) ? null : { passwordPattern: true };
   }
 
   onSubmit(): void {
-    if (!this.form.nombre.trim() || !this.correoValido(this.form.correo.trim())) {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
       this.mensaje.set('Revisa nombre y correo antes de guardar tu perfil.');
       this.mensajeTipo.set('error');
       return;
     }
 
-    if (this.form.clave && !this.claveValida(this.form.clave)) {
-      this.mensaje.set('La nueva contraseña no cumple los requisitos.');
-      this.mensajeTipo.set('error');
-      return;
-    }
-
+    const rawValues = this.form.getRawValue();
     const resultado = this.auth.updateProfile({
-      nombre: this.form.nombre.trim(),
-      correo: this.form.correo.trim(),
-      direccion: this.form.direccion.trim(),
-      contrasena: this.form.clave || undefined
+      nombre: String(rawValues.nombre ?? '').trim(),
+      correo: String(rawValues.correo ?? '').trim(),
+      direccion: String(rawValues.direccion ?? '').trim(),
+      contrasena: rawValues.clave ? String(rawValues.clave) : undefined
     });
 
     if (!resultado.ok) {
@@ -125,7 +139,7 @@ export class PerfilComponent implements OnInit {
       return;
     }
 
-    this.form.clave = '';
+    this.form.get('clave')?.reset('');
     this.mensaje.set('Perfil actualizado correctamente.');
     this.mensajeTipo.set('ok');
   }

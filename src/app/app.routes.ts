@@ -15,6 +15,11 @@ export const routes: Routes = [
       import('./pages/categoria/categoria.component').then(m => m.CategoriaComponent)
   },
   {
+    path: 'producto/:id',
+    loadComponent: () =>
+      import('./pages/producto-detalle/producto-detalle.component').then(m => m.ProductoDetalleComponent)
+  },
+  {
     path: 'registro',
     loadComponent: () =>
       import('./pages/registro/registro.component').then(m => m.RegistroComponent)
