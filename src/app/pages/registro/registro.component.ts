@@ -1,7 +1,13 @@
 import { Component, inject, signal } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, Validators, AbstractControl, ValidationErrors, ValidatorFn } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { StorageService } from '../../core/services/storage.service';
+import {
+  minimumAgeValidator,
+  noWhitespaceValidator,
+  passwordMatchValidator,
+  passwordPatternValidator
+} from '../../core/validators/registro.validators';
 
 interface ResumenRegistro {
   nombre: string;
@@ -63,9 +69,15 @@ interface ResumenRegistro {
             <label class="form-label" for="fechaNacimiento">Fecha de nacimiento</label>
             <input class="form-control" type="date" id="fechaNacimiento"
                    formControlName="fechaNacimiento"
-                   [class.is-valid]="fechaNacimiento.valid && fechaNacimiento.touched"
-                   [class.is-invalid]="fechaNacimiento.invalid && fechaNacimiento.touched">
-            <div class="invalid-feedback">Debes tener al menos 13 años para registrarte.</div>
+                   [class.is-valid]="fechaNacimiento.valid && !form.hasError('tooYoung') && fechaNacimiento.touched"
+                   [class.is-invalid]="(fechaNacimiento.invalid || form.hasError('tooYoung')) && fechaNacimiento.touched">
+            <div class="invalid-feedback">
+              @if (form.hasError('tooYoung') && fechaNacimiento.touched) {
+                Debes tener al menos 13 años para registrarte.
+              } @else {
+                Ingresa una fecha de nacimiento válida.
+              }
+            </div>
           </div>
 
           <!-- Contraseña -->
@@ -84,9 +96,15 @@ interface ResumenRegistro {
             <label class="form-label" for="repetirClave">Repetir contraseña</label>
             <input class="form-control" type="password" id="repetirClave"
                    formControlName="repetirClave"
-                   [class.is-valid]="repetirClave.valid && repetirClave.touched"
-                   [class.is-invalid]="repetirClave.invalid && repetirClave.touched">
-            <div class="invalid-feedback">Las contraseñas deben coincidir.</div>
+                   [class.is-valid]="repetirClave.valid && !form.hasError('passwordMismatch') && repetirClave.touched"
+                   [class.is-invalid]="(repetirClave.invalid || form.hasError('passwordMismatch')) && repetirClave.touched">
+            <div class="invalid-feedback">
+              @if (form.hasError('passwordMismatch') && repetirClave.touched) {
+                Las contraseñas deben coincidir.
+              } @else {
+                Confirma tu contraseña para continuar.
+              }
+            </div>
           </div>
 
           <!-- Dirección -->
@@ -140,13 +158,13 @@ export class RegistroComponent {
 
   form = this.fb.group({
     nombre: ['', Validators.required],
-    usuario: ['', [Validators.required, Validators.minLength(3), this.noWhitespaceValidator]],
+    usuario: ['', [Validators.required, Validators.minLength(3), noWhitespaceValidator]],
     email: ['', [Validators.required, Validators.email]],
     fechaNacimiento: ['', Validators.required],
-    clave: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(18), this.passwordPatternValidator]],
+    clave: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(18), passwordPatternValidator]],
     repetirClave: ['', Validators.required],
     direccion: ['']
-  }, { validators: [this.passwordMatchValidator(), this.minimumAgeValidator()] });
+  }, { validators: [passwordMatchValidator(), minimumAgeValidator(13)] });
 
   exitoso = signal(false);
   resumen = signal<ResumenRegistro | null>(null);
@@ -175,38 +193,6 @@ export class RegistroComponent {
 
   get repetirClave() {
     return this.form.get('repetirClave')!;
-  }
-
-  private noWhitespaceValidator(control: AbstractControl): ValidationErrors | null {
-    const value = String(control.value || '');
-    return value.trim().length === value.length ? null : { whitespace: true };
-  }
-
-  private passwordPatternValidator(control: AbstractControl): ValidationErrors | null {
-    const value = String(control.value || '');
-    return /^(?=.*[A-Z])(?=.*\d).{6,18}$/.test(value) ? null : { passwordPattern: true };
-  }
-
-  private passwordMatchValidator(): ValidatorFn {
-    return (group: AbstractControl): ValidationErrors | null => {
-      const clave = group.get('clave')?.value;
-      const repetir = group.get('repetirClave')?.value;
-      return clave && repetir && clave !== repetir ? { passwordMismatch: true } : null;
-    };
-  }
-
-  private minimumAgeValidator(): ValidatorFn {
-    return (group: AbstractControl): ValidationErrors | null => {
-      const fecha = group.get('fechaNacimiento')?.value;
-      if (!fecha) return null;
-      const hoy = new Date();
-      const nac = new Date(fecha + 'T00:00:00');
-      if (isNaN(nac.getTime())) return { invalidDate: true };
-      let edad = hoy.getFullYear() - nac.getFullYear();
-      const mes = hoy.getMonth() - nac.getMonth();
-      if (mes < 0 || (mes === 0 && hoy.getDate() < nac.getDate())) edad--;
-      return edad >= 13 ? null : { tooYoung: true };
-    };
   }
 
   onSubmit(): void {
